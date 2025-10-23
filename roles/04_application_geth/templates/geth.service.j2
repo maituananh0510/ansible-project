@@ -1,0 +1,37 @@
+[Unit]
+Description=Geth Ethereum Node
+After=network.target
+Wants=network.target
+
+[Service]
+# (PCI Req 7) Chạy bằng user và group không có quyền root
+User={{ geth_user }}
+Group={{ geth_group }}
+
+Type=simple
+Restart=on-failure
+RestartSec=5s
+
+# (QUAN TRỌNG) Đây là lệnh placeholder.
+# Bạn PHẢI cài Geth (bằng tay hoặc Ansible) và
+# cập nhật lệnh ExecStart này cho đúng với hệ thống của bạn.
+ExecStart=/usr/bin/geth \
+  --datadir {{ geth_home_dir }} \
+  --authrpc.jwtsecret {{ geth_jwt_secret }} \
+  --http \
+  --http.addr 0.0.0.0 \
+  --http.api eth,net,web3
+
+# (PCI Req 2, 6, 7) Các cờ bảo mật Systemd
+# Ngăn chặn Geth ghi vào file hệ thống
+ProtectSystem=full
+# Tạo /tmp riêng cho Geth
+PrivateTmp=yes
+# Ngăn Geth (hoặc tiến trình con) nhận thêm quyền
+NoNewPrivileges=yes
+# Xóa tất cả các "capabilities" của Linux, chỉ giữ lại những gì cần thiết
+# (Để trống = xóa tất cả)
+CapabilityBoundingSet=
+
+[Install]
+WantedBy=multi-user.target

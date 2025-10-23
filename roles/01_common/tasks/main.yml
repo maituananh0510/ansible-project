@@ -1,0 +1,105 @@
+---
+# Nhiệm vụ của role này: Cài đặt các gói cơ bản và đồng bộ thời gian
+
+# --- Auto-updates (PCI Req 6) ---
+- name: Ensure unattended-upgrades package is installed
+  ansible.builtin.apt:
+    name: unattended-upgrades
+    state: present
+    update_cache: yes
+  tags: [common, updates]
+
+- name: Enable unattended-upgrades service
+  ansible.builtin.copy:
+    dest: /etc/apt/apt.conf.d/20auto-upgrades
+    content: |
+      APT::Periodic::Update-Package-Lists "1";
+      APT::Periodic::Unattended-Upgrade "1";
+    mode: '0644'
+  tags: [common, updates]
+
+- name: Configure unattended-upgrades for security patches
+  ansible.builtin.lineinfile:
+    path: /etc/apt/apt.conf.d/50unattended-upgrades
+    regexp: '^\s*//\s*"\${distro_id}:\${distro_codename}-security";'
+    line: '"\${distro_id}:\${distro_codename}-security";'
+    backrefs: yes
+  tags: [common, updates]
+
+# --- Time-sync (PCI Req 10) ---
+- name: Install chrony
+  ansible.builtin.apt:
+    name: chrony
+    state: present
+  tags: [common, time, repo]
+
+- name: Ensure chrony service is enabled and started
+  ansible.builtin.service:
+    name: chrony
+    state: started
+    enabled: yes
+  tags: [common, time, repo]
+
+# --- Unused-services (PCI Req 2, 6) ---
+- name: Stop and disable unused services
+  ansible.builtin.service:
+    name: "{{ item }}"
+    state: stopped
+    enabled: no
+  loop: "{{ unused_packages_list }}"
+  ignore_errors: yes
+  tags: [common, services]
+
+- name: Remove unused packages completely
+  ansible.builtin.apt:
+    name: "{{ unused_packages_list }}"
+    state: absent
+    autoremove: yes
+    purge: yes
+  loop: "{{ unused_packages_list }}"
+  tags: [common, services]
+
+# --- Package signing & repo hardening (PCI Req 6) (LOGIC ĐÃ SỬA) ---
+
+- name: "[RepoFix] Step 1: Temporarily revert all sources to HTTP"
+  # Đảm bảo chúng ta dùng HTTP để có thể chạy apt update/install
+  ansible.builtin.replace:
+    path: /etc/apt/sources.list.d/ubuntu.sources
+    regexp: '(URIs:\s+)https://' # Tìm HTTPS
+    replace: '\1http://'       # Thay bằng HTTP
+    backup: no
+  tags: [common, repo, pci6]
+  
+- name: '[RepoFix] Step 1.5: Switch from broken (VN) mirror to main archive'
+  # vn.archive.ubuntu.com đang báo lỗi SSL certificate name mismatch.
+  # Chúng ta sẽ chuyển sang mirror chính (archive.ubuntu.com)
+  ansible.builtin.replace:
+    path: /etc/apt/sources.list.d/ubuntu.sources
+    regexp: 'vn.archive.ubuntu.com'
+    replace: 'archive.ubuntu.com'
+  tags: [common, repo, pci6]
+
+- name: "[RepoFix] Step 2: Run apt update (over HTTP)"
+  # Chạy apt update trên HTTP để tìm các gói
+  ansible.builtin.apt:
+    update_cache: yes
+  tags: [common, repo, pci6]
+
+- name: "[RepoFix] Step 3: Install HTTPS transport and CA certificates for APT"
+  # Bây giờ mới cài các gói HTTPS
+  ansible.builtin.apt:
+    name:
+      - apt-transport-https # <--- ĐÃ SỬA LỖI TYPO
+      - ca-certificates
+    state: present
+  tags: [common, repo, pci6]
+
+- name: "[RepoFix] Step 4: Ensure all APT sources use HTTPS (deb822 format)"
+  # Bây giờ, đổi lại sang HTTPS (vì đã cài gói)
+  ansible.builtin.replace:
+    path: /etc/apt/sources.list.d/ubuntu.sources
+    regexp: '(URIs:\s+)http://'
+    replace: '\1https://'
+    backup: yes
+  notify: Update apt cache # Gọi handler để chạy apt update (lần cuối qua HTTPS)
+  tags: [common, repo, pci6]

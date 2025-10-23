@@ -1,0 +1,131 @@
+---
+# Nhiệm vụ của role này: Cài đặt Auditd, AIDE, Logging, Fail2ban
+# Tương ứng Playbook 07, 08 (bản sửa lỗi), 09, 10
+
+# --- Từ Playbook 07: Auditd (PCI Req 10, 11) ---
+- name: Install auditd packages
+  ansible.builtin.apt:
+    name: [auditd, audispd-plugins]
+    state: present
+  tags: [monitoring, auditd]
+
+- name: Create custom PCI/Geth audit rules
+  ansible.builtin.copy:
+    dest: /etc/audit/rules.d/99-pci-geth.rules
+    content: |
+      -w /etc/passwd -p wa -k user_group_changes
+      -w /etc/group -p wa -k user_group_changes
+      -w /etc/shadow -p wa -k user_group_changes
+      -w /etc/sudoers -p wa -k sudoers_changes
+      -w /etc/ssh/sshd_config -p wa -k sshd_config_changes
+      -w /usr/bin/sudo -p x -k sudo_exec
+      -w /bin/su -p x -k su_exec
+      -w {{ geth_keystore_path }}/ -p rwa -k geth_keystore_access
+    mode: '0640'
+  notify: Restart auditd
+  tags: [monitoring, auditd]
+
+- name: Ensure auditd service is running and enabled
+  ansible.builtin.service:
+    name: auditd
+    state: started
+    enabled: yes
+  tags: [monitoring, auditd]
+
+# --- Từ Playbook 08: AIDE (PCI Req 11, 10) (Bản SIÊU BỀN BỈ) ---
+- name: Install AIDE
+  # 1. Cài đặt AIDE
+  ansible.builtin.apt:
+    name: aide
+    state: present
+  tags: [monitoring, aide]
+
+- name: Check if final AIDE database exists
+  # 2. Kiểm tra xem DB đã tồn tại chưa
+  ansible.builtin.stat:
+    path: /var/lib/aide/aide.db
+  register: aide_db_final
+  tags: [monitoring, aide]
+
+- name: "[Cleanup] Force kill any stale AIDE processes"
+  # 3. Dọn dẹp process 'aide' HOẶC 'aideinit' cũ (nếu có)
+  ansible.builtin.command: killall -9 aide aideinit
+  args:
+    warn: false
+  changed_when: false
+  failed_when: false # Bỏ qua lỗi nếu không tìm thấy process
+  when: not aide_db_final.stat.exists
+  tags: [monitoring, aide]
+
+- name: "[Cleanup] Remove stale AIDE .new.gz lock file"
+  # 4. Dọn dẹp file khóa .new (nếu có)
+  ansible.builtin.file:
+    path: /var/lib/aide/aide.db.new
+    state: absent
+  when: not aide_db_final.stat.exists
+  tags: [monitoring, aide]
+
+- name: Initialize AIDE database (This will be SLOW)
+  # 5. Quay lại dùng 'aideinit' (lệnh gốc, an toàn)
+  #    Lệnh này tự động chạy 'aide --init' VÀ 'mv' file
+  #    Chúng ta cho nó 1 GIỜ (3600s) để chạy, đảm bảo không timeout
+  ansible.builtin.command: aideinit
+  args:
+    creates: /var/lib/aide/aide.db # Lệnh này sẽ tạo file .gz cuối cùng
+  when: not aide_db_final.stat.exists
+  async: 3600 # Cho phép chạy tối đa 1 GIỜ
+  poll: 15    # Kiểm tra mỗi 15 giây
+  tags: [monitoring, aide]
+
+- name: Schedule daily AIDE check
+  # 6. Lên lịch
+  ansible.builtin.cron:
+    name: "Daily AIDE integrity check"
+    hour: "5"
+    job: "/usr/bin/aide.wrapper --check"
+    user: root
+    cron_file: aide-daily-check
+  tags: [monitoring, aide]
+
+# --- Centralized Logging (PCI Req 10) ---
+- name: Ensure rsyslog is installed
+  ansible.builtin.apt:
+    name: rsyslog
+    state: present
+  tags: [monitoring, logging]
+
+- name: Configure rsyslog to forward logs to SIEM
+  ansible.builtin.copy:
+    dest: /etc/rsyslog.d/60-forward-to-siem.conf
+    content: |
+      *.* @@{{ siem_server_ip }}:{{ siem_server_port }}
+    mode: '0644'
+  notify: Restart rsyslog
+  tags: [monitoring, logging]
+
+# --- Fail2ban (PCI Req 11) ---
+- name: Install fail2ban
+  ansible.builtin.apt:
+    name: fail2ban
+    state: present
+  tags: [monitoring, fail2ban]
+
+- name: Create local jail configuration for SSH
+  ansible.builtin.copy:
+    dest: /etc/fail2ban/jail.local
+    content: |
+      [DEFAULT]
+      bantime = 3600
+      maxretry = 3
+      [sshd]
+      enabled = true
+    mode: '0644'
+  notify: Restart fail2ban
+  tags: [monitoring, fail2ban]
+
+- name: Ensure fail2ban service is enabled and started
+  ansible.builtin.service:
+    name: fail2ban
+    state: started
+    enabled: yes
+  tags: [monitoring, fail2ban]

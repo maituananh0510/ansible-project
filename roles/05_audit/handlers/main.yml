@@ -1,0 +1,5 @@
+---
+# Handlers cho role 05_audit
+- name: Run apt update (to clear cache)
+  ansible.builtin.apt:
+    update_cache: yes

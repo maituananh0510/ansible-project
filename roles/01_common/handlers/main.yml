@@ -1,0 +1,5 @@
+---
+# Handlers cho role 01_common
+- name: Update apt cache
+  ansible.builtin.apt:
+    update_cache: yes

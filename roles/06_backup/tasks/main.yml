@@ -1,0 +1,35 @@
+---
+# roles/06_backup/tasks/main.yml
+# D. Quản trị & review (Backup)
+
+# --- Backup & recovery (PCI Req 12) ---
+- name: Install duplicity (backup tool)
+  # Cài đặt duplicity (một công cụ backup hỗ trợ mã hóa GPG)
+  ansible.builtin.apt:
+    name: duplicity
+    state: present
+  tags: [backup, pci12]
+
+- name: Create local backup destination directory
+  # Tạo thư mục lưu trữ backup (trên máy local)
+  # (PCI Req 12) Trong thực tế, bạn NÊN đẩy backup
+  # ra một máy chủ khác (SCP/S3/...)
+  ansible.builtin.file:
+    path: /var/backups/config_backups
+    state: directory
+    owner: root
+    group: root
+    mode: '0700' # Chỉ root được truy cập
+  tags: [backup, pci12]
+
+- name: Schedule daily encrypted backup of /etc
+  # Lên lịch backup thư mục /etc hàng ngày
+  # (Bạn cần tạo GPG key cho 'root' để mã hóa hoạt động)
+  ansible.builtin.cron:
+    name: "Daily /etc backup"
+    minute: "0"
+    hour: "3" # 3 giờ sáng
+    user: root
+    job: "duplicity /etc file:///var/backups/config_backups"
+    cron_file: config-backup
+  tags: [backup, pci12]

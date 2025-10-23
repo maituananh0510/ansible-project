@@ -1,0 +1,31 @@
+---
+- name: Apply Full Hardening Configuration to Geth Nodes
+  hosts: geth_nodes
+  become: yes
+  
+  # Chúng ta gọi các roles theo thứ tự logic
+  # Ansible sẽ tự động tìm chúng trong thư mục 'roles/'
+  roles:
+    # 1. Cài đặt các gói cơ bản, cập nhật, đồng bộ thời gian
+    - role: 01_common
+      tags: [common, updates, time]
+      
+    # 2. Cấu hình bảo mật User, SSH, Firewall, Kernel
+    - role: 02_hardening
+      tags: [hardening, ssh, firewall, kernel, users]
+
+    # 3. Cài đặt các công cụ giám sát, phát hiện
+    - role: 03_monitoring
+      tags: [monitoring, auditd, aide, logging, fail2ban]
+
+    # 4. Cài đặt và bảo mật Geth
+    - role: 04_application_geth
+      tags: [app, geth]
+
+    # 5. Chạy quét OpenSCAP, InSpec
+    - role: 05_audit
+      tags: [audit, openscap]
+      
+    # 6. Cấu hình backup
+    - role: 06_backup
+      tags: [backup]

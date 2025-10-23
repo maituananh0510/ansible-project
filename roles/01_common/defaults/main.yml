@@ -1,0 +1,9 @@
+---
+# Biến cho role 01_common
+unused_packages_list:
+  - telnetd
+  - rsh-server
+  - ftp
+  - samba
+  - nfs-kernel-server
+  - xinetd
