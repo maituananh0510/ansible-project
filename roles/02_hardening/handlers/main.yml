@@ -5,3 +5,15 @@
   ansible.builtin.service:
     name: ssh
     state: restarted
+  # → Restart dịch vụ SSH khi file cấu hình thay đổi
+
+- name: Restart ufw
+  ansible.builtin.service:
+    name: ufw
+    state: restarted
+  # → Restart firewall nếu có thay đổi
+
+- name: Reload sysctl
+  ansible.builtin.command: sysctl -p /etc/sysctl.d/99-hardening.conf
+  # → Reload lại thông số kernel ngay sau khi cập nhật
+

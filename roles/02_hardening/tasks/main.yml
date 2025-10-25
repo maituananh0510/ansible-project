@@ -1,112 +1,126 @@
 ---
-# Nhiệm vụ của role này: Bảo mật User, SSH, Firewall, Kernel
+# =========================================================
+# ROLE: 02_HARDENING
+# Mục tiêu: Bảo mật hệ điều hành chứa Geth node
+# Bao gồm: User/Auth, SSH, Firewall, Kernel Hardening, 2FA
+# Phù hợp PCI-DSS Req 1, 2, 6, 8, 10, 11
+# =========================================================
 
-# --- User/Auth (PCI Req 8) ---
-# (PCI Req 8) Khóa tài khoản root.
-# Ngăn chặn việc đăng nhập bằng mật khẩu root.
+# ---------------------- USER & AUTH ----------------------
 - name: Lock the root account password
   ansible.builtin.user:
     name: root
     password_lock: yes
   tags: [hardening, users]
+  # → Vô hiệu hoá đăng nhập trực tiếp bằng root qua SSH (PCI Req 8.1.4)
 
-# (PCI Req 8) Tạo một nhóm (ví dụ: 'devops') để quản lý quyền sudo.
 - name: Create a dedicated sudoers group
   ansible.builtin.group:
     name: "{{ privileged_group }}"
     state: present
   tags: [hardening, users]
+  
+  # Cho phép nhóm devops dùng sudo không cần mật khẩu
+- name: Allow 'devops' group to use NOPASSWD sudo
+  ansible.builtin.copy:
+    dest: /etc/sudoers.d/devops
+    content: |
+      %devops ALL=(ALL) NOPASSWD:ALL
+    owner: root
+    group: root
+    mode: '0440'
+  tags: [hardening, sudoers]
+  
+  # → Tạo nhóm quản trị (VD: devops) thay cho root để kiểm soát đặc quyền
 
-# (PCI Req 8) Cho phép nhóm 'devops' sử dụng sudo không cần mật khẩu.
-# Ghi vào file /etc/sudoers.d/ để dễ quản lý.
-- name: Allow '{{ privileged_group }}' group to use NOPASSWD sudo
+- name: Allow '{{ privileged_group }}' to use NOPASSWD sudo
   ansible.builtin.lineinfile:
     path: /etc/sudoers.d/90-privileged-group
     line: '%{{ privileged_group }} ALL=(ALL) NOPASSWD: ALL'
-    state: present
     mode: '0440'
     create: yes
     validate: 'visudo -cf %s'
   tags: [hardening, users]
+  # → Cho phép nhóm đặc quyền dùng sudo mà không cần mật khẩu
+  #   (có thể thay đổi thành có mật khẩu nếu chính sách yêu cầu)
 
-# Thêm user đang chạy ansible (từ inventory) vào nhóm sudoers.
-# Đảm bảo chúng ta không bị mất quyền truy cập.
-- name: Add ansible user to the sudoers group
+- name: Add ansible user to sudo group
   ansible.builtin.user:
     name: "{{ ansible_user }}"
     groups: "{{ privileged_group }}"
     append: yes
   tags: [hardening, users]
+  # → Thêm user ansible vào nhóm sudo để có quyền triển khai
 
-# (PCI Req 8) Cài đặt module 'pam_pwquality' để thực thi chính sách mật khẩu.
 - name: Install PAM password quality tools
   ansible.builtin.apt:
     name: libpam-pwquality
     state: present
   tags: [hardening, users]
+  # → Cài gói kiểm soát độ mạnh mật khẩu (pam_pwquality)
 
-# (PCI Req 8) Cấu hình PAM (common-password) yêu cầu độ dài tối thiểu 12 ký tự.
-- name: Enforce minimum password length (12 chars)
+- name: Enforce password policy (minlen=12, retry=3)
   ansible.builtin.lineinfile:
     path: /etc/pam.d/common-password
     regexp: '^password\s+requisite\s+pam_pwquality.so'
     line: 'password requisite pam_pwquality.so retry=3 minlen=12'
     backrefs: yes
   tags: [hardening, users]
+  # → Bắt buộc mật khẩu tối thiểu 12 ký tự, cho phép nhập sai tối đa 3 lần
 
-# (PCI Req 8) Cấu hình file /etc/login.defs (áp dụng cho user MỚI).
-# Buộc mật khẩu hết hạn sau 90 ngày.
-- name: Enforce password rotation (90 days) in /etc/login.defs
+- name: Enforce password rotation (90 days)
   ansible.builtin.lineinfile:
     path: /etc/login.defs
     regexp: '^\s*#?PASS_MAX_DAYS'
-    line: 'PASS_MAX_DAYS   90'  # <-- Đã sửa (dùng dấu cách thường)
-    insertafter: EOF  # <-- Đã thêm (để đảm bảo luôn được chèn nếu không tìm thấy)
+    line: 'PASS_MAX_DAYS   90'
+    insertafter: EOF
   tags: [hardening, users]
+  # → Giới hạn thời gian sử dụng mật khẩu tối đa 90 ngày (PCI Req 8.2.4)
 
-# (PCI Req 8)  Áp dụng chính sách 90 ngày cho user ĐÃ TỒN TẠI.
-# (File login.defs ở trên chỉ áp dụng cho user mới).
-- name: Enforce password expiry policy for existing users
+- name: Apply password expiry policy for existing users
   ansible.builtin.command: chage --maxdays 90 --warndays 7 "{{ item }}"
   loop:
     - "{{ ansible_user }}"
     - "geth"
   when: ansible_user != 'root'
   tags: [hardening, users]
+  # → Cập nhật chính sách cho người dùng hiện có (Ansible + Geth)
 
-# --- SSH Hardening (PCI Req 8, 11) ---
-# (PCI Req 8, 11) Cấu hình SSH an toàn (Dùng loop cho gọn).
-- name: Configure SSHd settings
+# ---------------------- SSH HARDENING ----------------------
+- name: Configure secure SSH settings
   ansible.builtin.lineinfile:
     path: /etc/ssh/sshd_config
     regexp: "^#?{{ item.key }}"
     line: "{{ item.key }} {{ item.value }}"
-    validate: 'sshd -t -f %s' # Kiểm tra cú pháp file sshd_config
+    validate: 'sshd -t -f %s'
   loop:
-    - { key: 'Protocol', value: '2' }                # Chỉ dùng giao thức an toàn SSHv2
-    - { key: 'PermitRootLogin', value: 'no' }         # Cấm root đăng nhập SSH
-    - { key: 'PasswordAuthentication', value: 'no' }  # Cấm đăng nhập bằng mật khẩu (chỉ dùng SSH key)
-    - { key: 'AllowGroups', value: '{{ privileged_group }}' } # Chỉ cho phép user trong nhóm 'devops' được SSH
-  notify: Restart ssh # Khởi động lại sshd nếu có thay đổi
+    - { key: 'Protocol', value: '2' }
+    - { key: 'PermitRootLogin', value: 'no' }
+    - { key: 'PasswordAuthentication', value: 'no' }
+    - { key: 'AllowGroups', value: '{{ privileged_group }}' }
+  notify: Restart ssh
   tags: [hardening, ssh]
+  # → Cấu hình SSH theo chuẩn an toàn:
+  #   - Protocol 2
+  #   - Cấm root login
+  #   - Cấm password login (chỉ dùng SSH key)
+  #   - Giới hạn nhóm được phép SSH
 
-# --- Firewall (PCI Req 1) ---
-# (PCI Req 1) Cài đặt Uncomplicated Firewall (UFW).
+# ---------------------- FIREWALL ----------------------
 - name: Install UFW
   ansible.builtin.apt:
     name: ufw
     state: present
   tags: [hardening, firewall]
+  # → Cài đặt tường lửa UFW (Uncomplicated Firewall)
 
-# (PCI Req 1) Reset UFW về trạng thái mặc định (để đảm bảo sạch).
-- name: Reset UFW to defaults
+- name: Reset UFW rules to defaults
   community.general.ufw:
     state: reset
   tags: [hardening, firewall]
+  # → Đặt lại cấu hình firewall về mặc định
 
-# (PCI Req 1) Thiết lập chính sách mặc định:
-# Chặn TẤT CẢ truy cập VÀO, cho phép TẤT CẢ truy cập RA.
-- name: Set default firewall policies (deny in, allow out)
+- name: Set default UFW policies (deny incoming, allow outgoing)
   community.general.ufw:
     direction: "{{ item.direction }}"
     policy: "{{ item.policy }}"
@@ -115,8 +129,7 @@
     - { direction: 'outgoing', policy: 'allow' }
   tags: [hardening, firewall]
 
-# (PCI Req 1) Mở các cổng cần thiết.
-- name: Allow essential SSH and Geth RPC ports
+- name: Allow essential ports (SSH + Geth RPC)
   community.general.ufw:
     rule: allow
     port: "{{ item.port }}"
@@ -124,26 +137,22 @@
     src: "{{ item.src | default('any') }}"
     comment: "{{ item.comment }}"
   loop:
-    # Cổng 22: Cho phép SSH (để chúng ta không bị mất kết nối)
     - { port: '22', comment: 'Allow SSH' }
-    # Cổng 8545: Cho phép Geth RPC (chỉ từ IP của controller)
     - { port: '8545', src: '{{ trusted_controller_ip }}', comment: 'Allow Geth RPC from Controller' }
   tags: [hardening, firewall]
 
-# (PCI Req 1) Kích hoạt và bật tường lửa.
-- name: Enable UFW firewall
+- name: Enable UFW
   community.general.ufw:
     state: enabled
   tags: [hardening, firewall]
+  # → Bật firewall để chặn truy cập trái phép (PCI Req 1)
 
-# --- Kernel Hardening (PCI Req 2, 11) ---
-# (PCI Req 2, 11) Tinh chỉnh kernel (sysctl) để tăng cường bảo mật.
-# Chống giả mạo IP (rp_filter), bảo vệ symlinks/hardlinks, v.v.
-- name: Apply security-related kernel parameters
+# ---------------------- KERNEL HARDENING ----------------------
+- name: Apply kernel hardening parameters
   ansible.posix.sysctl:
     name: "{{ item.key }}"
     value: "{{ item.value }}"
-    sysctl_file: /etc/sysctl.d/99-pci-hardening.conf
+    sysctl_file: /etc/sysctl.d/99-hardening.conf
     state: present
     reload: yes
   loop:
@@ -155,40 +164,37 @@
     - { key: 'fs.protected_symlinks', value: '1' }
     - { key: 'kernel.dmesg_restrict', value: '1' }
   tags: [hardening, kernel]
+  # → Tăng cường bảo mật kernel & network stack (PCI Req 2.2)
 
-# --- 2FA on privileged access (PCI Req 8, 10) ---
-# (PCI Req 8) Cài đặt module Google Authenticator (MFA/2FA).
-- name: Install Google Authenticator PAM module (for 2FA)
+# ---------------------- 2FA CONFIGURATION ----------------------
+- name: Install Google Authenticator PAM module
   ansible.builtin.apt:
     name: libpam-google-authenticator
     state: present
-  tags: [hardening, ssh, 2fa, pci8]
+  tags: [hardening, ssh, 2fa]
 
-# (PCI Req 8) Cấu hình PAM (sshd) để yêu cầu 2FA khi SSH.
-- name: Enforce 2FA for SSH
+- name: Enable PAM for SSH 2FA
   ansible.builtin.lineinfile:
     path: /etc/pam.d/sshd
     line: 'auth required pam_google_authenticator.so'
     insertafter: '^@include common-auth'
-  tags: [hardening, ssh, 2fa, pci8]
+  tags: [hardening, ssh, 2fa]
+  # → Thêm 2FA vào PAM để yêu cầu OTP khi SSH (PCI Req 8.3)
 
-# (PCI Req 8) Bật 'ChallengeResponseAuthentication' trong SSH để cho phép 2FA hoạt động.
-- name: Enable 2FA challenge in sshd_config
+- name: Enable ChallengeResponseAuthentication in sshd_config
   ansible.builtin.lineinfile:
     path: /etc/ssh/sshd_config
     regexp: '^#?ChallengeResponseAuthentication'
     line: 'ChallengeResponseAuthentication yes'
     validate: 'sshd -t -f %s'
   notify: Restart ssh
-  tags: [hardening, ssh, 2fa, pci8]
+  tags: [hardening, ssh, 2fa]
 
-# (PCI Req 10) Hiển thị thông báo (debug msg) nhắc nhở admin.
-# (Mỗi user phải tự chạy 'google-authenticator' để tạo mã QR).
-- name: Display 2FA setup note
+- name: Display 2FA setup reminder
   ansible.builtin.debug:
     msg: |
-      [LƯU Ý] Task 15: Đã cài đặt PAM cho 2FA.
-      Để sử dụng, mỗi user (ví dụ: {{ ansible_user }}) PHẢI TỰ CHẠY
-      lệnh 'google-authenticator' trên máy Geth
-      để tạo QR code và secret key cho riêng mình.
-  tags: [hardening, ssh, 2fa, pci8]
+      [NOTICE] PAM 2FA is now enabled.
+      Each user (e.g., {{ ansible_user }}) must run 'google-authenticator' 
+      on the Geth node to initialize their own OTP key.
+  tags: [hardening, ssh, 2fa]
+

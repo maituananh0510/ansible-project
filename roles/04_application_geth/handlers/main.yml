@@ -1,6 +1,11 @@
 ---
-# roles/04_application_geth/handlers/main.yml
-- name: Reload systemd
-  # Yêu cầu systemd đọc lại file cấu hình (geth.service)
+- name: Reload systemd and restart geth
   ansible.builtin.systemd:
     daemon_reload: yes
+  notify: Restart geth service
+
+- name: Restart geth service
+  ansible.builtin.service:
+    name: geth
+    state: restarted
+

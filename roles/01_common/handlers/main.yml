@@ -1,5 +1,11 @@
 ---
-# Handlers cho role 01_common
-- name: Update apt cache
-  ansible.builtin.apt:
-    update_cache: yes
+# ============================================================
+# Handlers for role: 01_common
+# ============================================================
+
+- name: Restart chrony
+  ansible.builtin.service:
+    name: chrony
+    state: restarted
+  # Restart lại dịch vụ chrony sau khi thay đổi cấu hình
+
