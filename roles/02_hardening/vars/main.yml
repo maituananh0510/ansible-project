@@ -1,2 +1,5 @@
 ---
-# vars file for 02_hardening
+# vars file for 02_hardening---
+privileged_group: devops           # Nhóm người dùng có quyền sudo
+trusted_controller_ip: 192.168.0.112  # IP của máy Ansible Controller
+

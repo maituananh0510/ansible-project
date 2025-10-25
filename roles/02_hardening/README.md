@@ -1,38 +1,27 @@
-Role Name
-=========
+# Role 02_hardening
 
-A brief description of the role goes here.
+## Purpose
+This role strengthens the operating system hosting the Geth node based on PCI-DSS requirements.
 
-Requirements
-------------
+### Key Features
+- Lock root password and manage sudo privileges
+- Enforce strong password policy (minlen=12, rotation=90d)
+- Secure SSH configuration
+- Apply UFW firewall rules
+- Kernel-level hardening via sysctl
+- Enable optional 2FA using Google Authenticator
 
-Any pre-requisites that may not be covered by Ansible itself or the role should be mentioned here. For instance, if the role uses the EC2 module, it may be a good idea to mention in this section that the boto package is required.
+### PCI-DSS Mapping
+| Control | Description |
+|----------|-------------|
+| Req 1 | Restrict inbound/outbound traffic using firewall |
+| Req 2 | Harden kernel and remove insecure services |
+| Req 6 | Maintain secure configurations |
+| Req 8 | Enforce user authentication & access control |
+| Req 10 | Log authentication attempts |
+| Req 11 | Enable periodic testing & 2FA |
 
-Role Variables
---------------
+### Variables
+- `privileged_group`: sudo group name (default: `devops`)
+- `trusted_controller_ip`: IP allowed for RPC (default: `192.168.0.112`)
 
-A description of the settable variables for this role should go here, including any variables that are in defaults/main.yml, vars/main.yml, and any variables that can/should be set via parameters to the role. Any variables that are read from other roles and/or the global scope (ie. hostvars, group vars, etc.) should be mentioned here as well.
-
-Dependencies
-------------
-
-A list of other roles hosted on Galaxy should go here, plus any details in regards to parameters that may need to be set for other roles, or variables that are used from other roles.
-
-Example Playbook
-----------------
-
-Including an example of how to use your role (for instance, with variables passed in as parameters) is always nice for users too:
-
-    - hosts: servers
-      roles:
-         - { role: username.rolename, x: 42 }
-
-License
--------
-
-BSD
-
-Author Information
-------------------
-
-An optional section for the role authors to include contact information, or a website (HTML is not allowed).

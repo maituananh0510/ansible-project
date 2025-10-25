@@ -1,12 +1,5 @@
 ---
-# roles/04_application_geth/defaults/main.yml
-# Các biến mặc định cho Geth
-geth_user: "geth-service"
-geth_group: "geth-service"
+# biến mặc định cho geth
+geth_exec: /usr/bin/geth
+geth_config_path: /etc/geth/config.toml
 
-# (PCI Req 7) Thư mục nhà cho user 'geth'
-geth_home_dir: "/var/lib/geth"
-
-# (PCI Req 3) Đường dẫn đến keystore và file secret
-geth_keystore_dir: "{{ geth_home_dir }}/keystore"
-geth_jwt_secret: "{{ geth_home_dir }}/jwt.secret"

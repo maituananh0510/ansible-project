@@ -1,5 +1,5 @@
 ---
-# Handlers cho role 03_monitoring
+# Handlers để khởi động lại dịch vụ khi thay đổi cấu hình
 - name: Restart auditd
   ansible.builtin.service:
     name: auditd
@@ -14,3 +14,4 @@
   ansible.builtin.service:
     name: fail2ban
     state: restarted
+

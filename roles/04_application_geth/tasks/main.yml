@@ -1,107 +1,47 @@
 ---
-# roles/04_application_geth/tasks/main.yml
-# C. Quyền truy cập / dữ liệu (Protect sensitive data)
+# Tasks role geth: tạo user geth, tạo thư mục, deploy systemd service
 
-# --- TASK DỌN DẸP ---
-- name: "[Prereq] Stop any existing geth service"
-  # Dừng service geth (nếu nó đang chạy)
-  # để mở khóa user 'geth' trước khi chúng ta sửa nó
-  ansible.builtin.systemd:
-    name: geth.service
-    state: stopped
-  ignore_errors: yes # Bỏ qua nếu service không tồn tại
-  tags: [app, geth, runtime, pci7]
-
-- name: "[Prereq] Kill any remaining processes for user 'geth'"
-  # Giết (kill) bất kỳ process nào còn sót lại của user 'geth'
-  # (để đảm bảo usermod chạy thành công)
-  ansible.builtin.command: killall -9 -u {{ geth_user }}
-  args:
-    warn: false
-  changed_when: false # Lệnh này không thay đổi gì
-  failed_when: false  # Bỏ qua lỗi (nếu không tìm thấy process nào)
-  tags: [app, geth, runtime, pci7]
-# --- KẾT THÚC TASK DỌN DẸP ---
-
-# --- Disk Encryption (PCI Req 3) ---
-- name: Install disk encryption tools
-  # Cài đặt công cụ 'cryptsetup' để quản lý mã hóa LUKS
-  ansible.builtin.apt:
-    name: cryptsetup
-    state: present
-  tags: [app, geth, data, pci3]
-
-- name: Display warning about disk encryption
-  # (QUAN TRỌNG) Hiển thị cảnh báo
-  # Ansible không thể mã hóa ổ đĩa HỆ THỐNG đang chạy
-  # Việc này phải được làm thủ công khi cài OS
-  ansible.builtin.debug:
-    msg: |
-      [CẢNH BÁO] Đã cài 'cryptsetup'.
-      Lưu ý: Mã hóa ổ đĩa hệ thống (at-rest) phải được thực hiện
-      TRONG QUÁ TRÌNH CÀI ĐẶT HỆ ĐIỀU HÀNH.
-      Playbook này chỉ cài đặt công cụ, không thực hiện mã hóa.
-  tags: [app, geth, data, pci3]
-
-# --- Secure Geth Runtime (PCI Req 7, 6) ---
-- name: Create a dedicated non-root user for Geth
-  # (PCI Req 7) Tạo một user 'geth' không có quyền root
-  # để chạy tiến trình Geth (nguyên tắc đặc quyền tối thiểu)
+- name: Tạo system user 'geth' nếu chưa tồn tại (non-login)
   ansible.builtin.user:
-    name: "{{ geth_user }}"
-    system: yes       # Đây là user hệ thống, không phải user login
-    shell: /bin/false # Không cho phép login
-    home: "{{ geth_home_dir }}"
+    name: geth
+    system: yes
+    shell: /usr/sbin/nologin
     create_home: yes
-  tags: [app, geth, runtime, pci7]
+    home: /var/lib/geth
+  tags: [geth, app]
 
-# --- Protect Private Keys & Secrets (PCI Req 3, 7) ---
-- name: Enforce strict permissions on Geth home directory
-  # Đảm bảo thư mục nhà của Geth chỉ user 'geth' mới có thể R/W/X
+- name: Tạo thư mục data cho geth
   ansible.builtin.file:
-    path: "{{ geth_home_dir }}"
+    path: /var/lib/geth
     state: directory
-    owner: "{{ geth_user }}"
-    group: "{{ geth_group }}"
-    mode: '0700' # Chỉ chủ sở hữu (geth) có quyền
-  tags: [app, geth, data, pci3, pci7]
+    owner: geth
+    group: geth
+    mode: '0750'
+  tags: [geth, app]
 
-- name: Create and secure Geth keystore directory
-  # Tạo thư mục keystore (nếu chưa có) và áp dụng quyền 0700
+- name: Tạo thư mục keystore cho geth
   ansible.builtin.file:
-    path: "{{ geth_keystore_dir }}"
+    path: /var/lib/geth/keystore
     state: directory
-    owner: "{{ geth_user }}"
-    group: "{{ geth_group }}"
+    owner: geth
+    group: geth
     mode: '0700'
-  tags: [app, geth, data, pci3, pci7]
+  tags: [geth, app, pci3]
 
-- name: Create and secure Geth JWT secret file
-  # (PCI Req 3) Đảm bảo file JWT secret (dùng cho Engine API)
-  # có quyền 0600 (chỉ chủ sở hữu R/W)
-  ansible.builtin.file:
-    path: "{{ geth_jwt_secret }}"
-    state: touch # Tạo file rỗng nếu chưa có, hoặc chỉ cập nhật timestamp
-    owner: "{{ geth_user }}"
-    group: "{{ geth_group }}"
-    mode: '0600' # Chỉ chủ sở hữu R/W
-  tags: [app, geth, data, pci3, pci7]
-
-- name: Display note about external secret management
-  # (Lưu ý) Về việc dùng Vault/Clef
-  ansible.builtin.debug:
-    msg: |
-      [LƯU Ý] Đã áp dụng quyền (0600/0700) cho file/thư mục.
-      Việc tích hợp HashiCorp Vault hoặc Clef là một
-      thay đổi kiến trúc lớn và nằm ngoài phạm vi của task này.
-  tags: [app, geth, data, pci3, pci7]
-
-# --- Secure Geth Runtime (PCI Req 7, 6) ---
-- name: Create secure systemd unit file for Geth
-  # (PCI Req 6, 7) Tạo file dịch vụ systemd cho Geth với các cờ bảo mật
+- name: Deploy unit file for geth (systemd) từ template
   ansible.builtin.template:
-    src: geth.service.j2 # Chúng ta sẽ dùng template
+    src: geth.service.j2
     dest: /etc/systemd/system/geth.service
+    owner: root
+    group: root
     mode: '0644'
-  notify: Reload systemd # Thông báo cho handler
-  tags: [app, geth, runtime, pci7, pci6]
+  notify: Reload systemd and restart geth
+  tags: [geth, app]
+
+- name: Ensure geth systemd service enabled and started
+  ansible.builtin.service:
+    name: geth
+    state: started
+    enabled: yes
+  tags: [geth, app]
+

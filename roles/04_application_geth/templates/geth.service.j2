@@ -1,37 +1,28 @@
 [Unit]
 Description=Geth Ethereum Node
 After=network.target
-Wants=network.target
 
 [Service]
-# (PCI Req 7) Chạy bằng user và group không có quyền root
-User={{ geth_user }}
-Group={{ geth_group }}
+User=geth
+Group=geth
+# Thay đổi ExecStart theo cài đặt thực tế (đường dẫn binary & options)
+ExecStart=/usr/bin/geth --config /etc/geth/config.toml
+Restart=always
+RestartSec=10
+LimitNOFILE=65536
 
-Type=simple
-Restart=on-failure
-RestartSec=5s
-
-# (QUAN TRỌNG) Đây là lệnh placeholder.
-# Bạn PHẢI cài Geth (bằng tay hoặc Ansible) và
-# cập nhật lệnh ExecStart này cho đúng với hệ thống của bạn.
-ExecStart=/usr/bin/geth \
-  --datadir {{ geth_home_dir }} \
-  --authrpc.jwtsecret {{ geth_jwt_secret }} \
-  --http \
-  --http.addr 0.0.0.0 \
-  --http.api eth,net,web3
-
-# (PCI Req 2, 6, 7) Các cờ bảo mật Systemd
-# Ngăn chặn Geth ghi vào file hệ thống
-ProtectSystem=full
-# Tạo /tmp riêng cho Geth
-PrivateTmp=yes
-# Ngăn Geth (hoặc tiến trình con) nhận thêm quyền
+# --- Sandbox security settings ---
 NoNewPrivileges=yes
-# Xóa tất cả các "capabilities" của Linux, chỉ giữ lại những gì cần thiết
-# (Để trống = xóa tất cả)
-CapabilityBoundingSet=
+PrivateTmp=yes
+ProtectSystem=full
+ProtectHome=yes
+ReadWritePaths=/var/lib/geth
+CapabilityBoundingSet=CAP_NET_BIND_SERVICE CAP_CHOWN CAP_DAC_OVERRIDE
+
+# Giới hạn _nproc_ và memory nếu muốn (tuỳ môi trường)
+#TasksMax=100
+#MemoryLimit=1G
 
 [Install]
 WantedBy=multi-user.target
+
