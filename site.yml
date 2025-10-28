@@ -21,11 +21,15 @@
     # 4. Cài đặt và bảo mật Geth
     - role: 04_application_geth
       tags: [app, geth]
-
-    # 5. Chạy quét OpenSCAP, InSpec
-    - role: 05_audit
-      tags: [audit, openscap]
       
-    # 6. Cấu hình backup
-    - role: 06_backup
+    # 5. Cấu hình backup
+    - role: 05_backup
       tags: [backup]
+
+    # 6. Kiểm tra hệ thống vẫn tuân thủ sau khi triển khai
+    - role: 06_compliance
+      tags: [compliance, services, shh, backup, permissions, report]
+      
+    # 7. Thu thập dữ liệu compliance/backup/monitoring, tạo báo cáo text & JSON, nén báo cáo và (tùy chọn) gửi/đóng gói về Ansible controller.
+    - role: 07_reporting
+      tags: [reporting, compliance, monitoring, backup] 

@@ -1,16 +1,44 @@
 ---
-# Tasks role geth: tạo user geth, tạo thư mục, deploy systemd service
+# Role 04_application_geth
+# Purpose: Triển khai và bảo mật node Geth
+# Chú thích tiếng Việt để dễ hiểu từng phần
 
-- name: Tạo system user 'geth' nếu chưa tồn tại (non-login)
+# =========================
+# 1. Kiểm tra điều kiện tiên quyết
+# =========================
+- name: Prereq | Ensure geth binary exists
+  ansible.builtin.stat:
+    path: /usr/bin/geth
+  register: geth_bin
+  tags: [geth, app]
+
+- name: Prereq | Fail if geth binary missing
+  ansible.builtin.fail:
+    msg: "Geth binary not found in /usr/bin/geth. Please install geth first."
+  when: not geth_bin.stat.exists
+  tags: [geth, app]
+
+# =========================
+# 2. Tạo user và thư mục cho Geth
+# =========================
+- name: Ensure system user 'geth' exists (skip if running)
+  ansible.builtin.command: id geth
+  register: geth_user_check
+  ignore_errors: yes
+  changed_when: false
+
+- name: Create system user 'geth' (no shell login)
   ansible.builtin.user:
     name: geth
     system: yes
     shell: /usr/sbin/nologin
-    create_home: yes
     home: /var/lib/geth
+    create_home: yes
+  when: geth_user_check.rc != 0
   tags: [geth, app]
 
-- name: Tạo thư mục data cho geth
+
+- name: Ensure Geth data directory exists
   ansible.builtin.file:
     path: /var/lib/geth
     state: directory
@@ -19,16 +47,40 @@
     mode: '0750'
   tags: [geth, app]
 
-- name: Tạo thư mục keystore cho geth
+- name: Ensure Geth keystore directory has strict permissions
   ansible.builtin.file:
     path: /var/lib/geth/keystore
     state: directory
     owner: geth
     group: geth
     mode: '0700'
-  tags: [geth, app, pci3]
+  tags: [geth, app, security]
 
-- name: Deploy unit file for geth (systemd) từ template
+# =========================
+# 3. JWT secret file (nếu cần thiết cho RPC authentication)
+# =========================
+# Tạo file JWT secret chuẩn 32 bytes
+- name: Ensure JWT secret file exists (64 hex chars)
+  ansible.builtin.shell: |
+    if [ ! -f /var/lib/geth/jwt.secret ]; then
+      openssl rand -hex 32 > /var/lib/geth/jwt.secret
+    fi
+  args:
+    creates: /var/lib/geth/jwt.secret
+  become: true
+
+- name: Set permissions for JWT secret
+  ansible.builtin.file:
+    path: /var/lib/geth/jwt.secret
+    owner: geth
+    group: geth
+    mode: '0600'
+
+
+# =========================
+# 4. Deploy systemd unit file
+# =========================
+- name: Deploy secure systemd service for Geth
   ansible.builtin.template:
     src: geth.service.j2
     dest: /etc/systemd/system/geth.service
@@ -38,7 +90,10 @@
   notify: Reload systemd and restart geth
   tags: [geth, app]
 
-- name: Ensure geth systemd service enabled and started
+# =========================
+# 5. Enable and start service
+# =========================
+- name: Ensure Geth service is enabled and started
   ansible.builtin.service:
     name: geth
     state: started

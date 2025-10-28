@@ -1,0 +1,9 @@
+# Default variables for role 07_reporting
+report_dir: /var/reports/geth-compliance        # Thư mục lưu báo cáo trên node
+report_owner: root
+report_group: root
+report_mode: '0640'
+report_retention_days: 30                       # Giữ báo cáo trong bao lâu (ngày)
+fetch_to_controller: true                       # Nếu true, Ansible controller sẽ fetch báo cáo về
+controller_reports_dest: /tmp/geth_reports      # Nơi lưu trên controller (khi fetch_to_controller=true)
+

@@ -1,27 +1,35 @@
+# /etc/systemd/system/geth.service
+# Hardened Geth service unit file
+
 [Unit]
-Description=Geth Ethereum Node
+Description=Geth Ethereum Node (Secure)
 After=network.target
 
 [Service]
 User=geth
 Group=geth
-# Thay đổi ExecStart theo cài đặt thực tế (đường dẫn binary & options)
-ExecStart=/usr/bin/geth --config /etc/geth/config.toml
-Restart=always
-RestartSec=10
-LimitNOFILE=65536
+Type=simple
+ExecStart=/usr/bin/geth \
+  --datadir /var/lib/geth \
+  --http \
+  --http.addr 0.0.0.0 \
+  --http.port 8545 \
+  --http.api eth,net,web3 \
+  --authrpc.jwtsecret /var/lib/geth/jwt.secret \
+  --syncmode "snap"
 
-# --- Sandbox security settings ---
-NoNewPrivileges=yes
-PrivateTmp=yes
+# Security hardening options
+NoNewPrivileges=true
+PrivateTmp=true
 ProtectSystem=full
-ProtectHome=yes
+ProtectHome=true
+ProtectKernelModules=true
+ProtectKernelLogs=true
+ProtectControlGroups=true
 ReadWritePaths=/var/lib/geth
 CapabilityBoundingSet=CAP_NET_BIND_SERVICE CAP_CHOWN CAP_DAC_OVERRIDE
-
-# Giới hạn _nproc_ và memory nếu muốn (tuỳ môi trường)
-#TasksMax=100
-#MemoryLimit=1G
+Restart=on-failure
+RestartSec=10s
 
 [Install]
 WantedBy=multi-user.target

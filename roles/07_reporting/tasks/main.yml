@@ -1,0 +1,199 @@
+---
+# Role: 07_reporting (final version)
+# Mục tiêu: Thu thập dữ liệu compliance/backup/monitoring, tạo báo cáo text & JSON,
+# nén báo cáo và gửi/đóng gói về Ansible controller.
+
+# -----------------------------------------
+# Khởi tạo timestamp chung cho toàn bộ role
+- name: Generate unified timestamp for report
+  ansible.builtin.set_fact:
+    report_timestamp: "{{ lookup('pipe', 'date +%Y%m%dT%H%M%S') }}"
+  run_once: true
+  tags: [reporting]
+
+# -----------------------------------------
+# Tạo thư mục chứa báo cáo
+- name: Ensure report directory exists
+  ansible.builtin.file:
+    path: "{{ report_dir }}"
+    state: directory
+    owner: "{{ report_owner }}"
+    group: "{{ report_group }}"
+    mode: '0750'
+  tags: [reporting, compliance]
+
+- name: Gather service facts
+  ansible.builtin.service_facts:
+  tags: [reporting, compliance]
+
+- name: Collect important system facts
+  ansible.builtin.setup:
+    gather_subset: '!all'
+  register: system_facts
+  tags: [reporting]
+
+# -----------------------------------------
+# Thu thập trạng thái dịch vụ quan trọng
+- name: Check status of monitored services
+  ansible.builtin.shell: |
+    for svc in auditd rsyslog fail2ban ssh geth; do
+      echo "$svc: $(systemctl is-active $svc 2>/dev/null || echo 'unknown')";
+    done
+  args:
+    executable: /bin/bash
+  register: services_status
+  changed_when: false
+  tags: [reporting, compliance]
+
+# -----------------------------------------
+# Thu thập log
+- name: Gather last lines from audit.log, syslog and geth journal
+  block:
+    - name: Tail audit log (if exists)
+      ansible.builtin.shell: |
+        if [ -f /var/log/audit/audit.log ]; then
+          tail -n 100 /var/log/audit/audit.log > {{ report_dir }}/audit_tail.log
+        else
+          echo "no audit.log" > {{ report_dir }}/audit_tail.log
+        fi
+      args:
+        executable: /bin/bash
+      changed_when: false
+
+    - name: Tail syslog (if exists)
+      ansible.builtin.shell: |
+        if [ -f /var/log/syslog ]; then
+          tail -n 100 /var/log/syslog > {{ report_dir }}/syslog_tail.log
+        else
+          echo "no syslog" > {{ report_dir }}/syslog_tail.log
+        fi
+      args:
+        executable: /bin/bash
+      changed_when: false
+      become: yes 
+
+    - name: Gather geth journal (last 200 lines)
+      ansible.builtin.shell: |
+        if systemctl list-units --type=service --all | grep -q "^geth.service"; then
+          journalctl -u geth -n 200 --no-pager > {{ report_dir }}/geth_journal.log || echo "no journal" > {{ report_dir }}/geth_journal.log
+        else
+          echo "geth not installed" > {{ report_dir }}/geth_journal.log
+        fi
+      args:
+        executable: /bin/bash
+      changed_when: false
+  tags: [reporting, monitoring]
+
+# -----------------------------------------
+# Thông tin backup
+- name: Stat backup log file
+  ansible.builtin.stat:
+    path: /var/backups/geth/backup.log
+  register: backup_log
+  tags: [reporting, backup]
+
+- name: Find most recent backup artifact
+  ansible.builtin.find:
+    paths: /var/backups/geth
+    patterns: "geth_backup_*.tar.gz"
+    recurse: no
+  register: backup_files
+  changed_when: false
+  tags: [reporting, backup]
+
+# -----------------------------------------
+# Đọc nội dung log trên remote bằng slurp
+- name: Read log contents from remote
+  block:
+    - name: Read audit log
+      ansible.builtin.slurp:
+        src: "{{ report_dir }}/audit_tail.log"
+      register: audit_log_raw
+      ignore_errors: yes
+
+    - name: Read syslog
+      ansible.builtin.slurp:
+        src: "{{ report_dir }}/syslog_tail.log"
+      register: syslog_raw
+      ignore_errors: yes
+
+    - name: Read geth journal
+      ansible.builtin.slurp:
+        src: "{{ report_dir }}/geth_journal.log"
+      register: geth_log_raw
+      ignore_errors: yes
+  tags: [reporting]
+
+
+# Render file báo cáo text (trên remote)
+- name: Render compliance/text report
+  ansible.builtin.template:
+    src: report_summary.j2
+    dest: "{{ report_dir }}/geth_compliance_report_{{ report_timestamp }}.txt"
+    mode: '0644'
+  vars:
+    audit_log_content: "{{ (audit_log_raw.content | b64decode) | default('No audit log data', true) }}"
+    syslog_content: "{{ (syslog_raw.content | b64decode) | default('No syslog data', true) }}"
+    geth_log_content: "{{ (geth_log_raw.content | b64decode) | default('No geth log data', true) }}"
+    backup_log_path: "{{ backup_log.stat.path | default('N/A') }}"
+    recent_backup: "{{ backup_files.files | sort(attribute='mtime', reverse=true) | first | default({}) }}"
+    latest_backup: "{{ recent_backup.path | default('Không có file backup nào được tìm thấy') }}"
+    services_status_out: "{{ services_status.stdout_lines | default([]) }}"
+  become: yes
+  tags: [reporting]
+
+
+# -----------------------------------------
+- name: Define latest backup fact globally
+  ansible.builtin.set_fact:
+    recent_backup: "{{ backup_files.files | sort(attribute='mtime', reverse=true) | first | default({}) }}"
+    latest_backup: "{{ recent_backup.path | default('Không có file backup nào được tìm thấy') }}"
+  tags: [reporting, backup]
+
+
+# Ghi JSON metadata
+- name: Write JSON metadata for report
+  ansible.builtin.copy:
+    dest: "{{ report_dir }}/geth_compliance_report_{{ report_timestamp }}.json"
+    content: |
+      {
+        "generated_at": "{{ ansible_date_time.iso8601 }}",
+        "host": "{{ inventory_hostname }}",
+        "services_status": {{ services_status.stdout | to_json }},
+        "backup_log_exists": {{ (backup_log.stat.exists | default(false)) | to_json }},
+        "backup_log_mtime": "{{ backup_log.stat.mtime | default('') }}",
+        "latest_backup": "{{ latest_backup | default('Không có file backup nào được tìm thấy') }}"
+      }
+    owner: "{{ report_owner }}"
+    group: "{{ report_group }}"
+    mode: "{{ report_mode }}"
+  tags: [reporting]
+  become: yes
+
+
+# -----------------------------------------
+# Tạo file nén
+- name: Archive the report directory contents into a tar.gz
+  ansible.builtin.archive:
+    path:
+      - "{{ report_dir }}/geth_compliance_report_{{ report_timestamp }}.txt"
+      - "{{ report_dir }}/geth_compliance_report_{{ report_timestamp }}.json"
+      - "{{ report_dir }}/audit_tail.log"
+      - "{{ report_dir }}/syslog_tail.log"
+      - "{{ report_dir }}/geth_journal.log"
+    dest: "{{ report_dir }}/geth_compliance_package_{{ report_timestamp }}.tar.gz"
+    format: gz
+  become: yes
+  tags: [reporting]
+
+# -----------------------------------------
+# Fetch gói nén về controller
+- name: Fetch compliance package to controller
+  ansible.builtin.fetch:
+    src: "{{ report_dir }}/geth_compliance_package_{{ report_timestamp }}.tar.gz"
+    dest: "{{ controller_reports_dest }}/"
+    flat: yes
+  when: fetch_to_controller | bool
+  tags: [reporting]
+  become: yes
+

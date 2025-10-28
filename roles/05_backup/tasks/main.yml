@@ -1,0 +1,110 @@
+---
+# ===============================================================
+# Role: 05_backup
+# Purpose: Tự động sao lưu (backup) và kiểm thử tính toàn vẹn cho node Geth
+# Components: Geth data, systemd service, SSH config
+# ===============================================================
+
+# ---------------------------
+# PHẦN 1: Tạo thư mục backup
+# ---------------------------
+- name: Ensure local backup directory exists
+  ansible.builtin.file:
+    path: /var/backups/geth
+    state: directory
+    owner: root
+    group: root
+    mode: '0750'
+  tags: [backup]
+
+# ---------------------------
+# PHẦN 2: Triển khai script backup
+# ---------------------------
+- name: Deploy backup script
+  ansible.builtin.copy:
+    dest: /usr/local/bin/geth_backup.sh
+    owner: root
+    group: root
+    mode: '0750'
+    content: |
+      #!/bin/bash
+      # =============================================
+      # Script tự động backup Geth node
+      # Lưu trữ /var/lib/geth, file cấu hình systemd và SSH
+      # =============================================
+
+      BACKUP_DIR="/var/backups/geth"
+      DATE=$(date +%Y%m%d_%H%M%S)
+      BACKUP_FILE="$BACKUP_DIR/geth_backup_${DATE}.tar.gz"
+      LOG_FILE="$BACKUP_DIR/backup.log"
+
+      mkdir -p "$BACKUP_DIR"
+
+      echo "$(date '+%Y-%m-%d %H:%M:%S') - Starting backup..." >> "$LOG_FILE"
+
+      tar -czf "$BACKUP_FILE" \
+          /var/lib/geth \
+          /etc/systemd/system/geth.service \
+          /etc/ssh/sshd_config 2>> "$LOG_FILE"
+
+      if [ $? -eq 0 ]; then
+          echo "$(date '+%Y-%m-%d %H:%M:%S') - Backup completed successfully: $BACKUP_FILE" >> "$LOG_FILE"
+          find "$BACKUP_DIR" -type f -name "geth_backup_*.tar.gz" -mtime +7 -delete
+          echo "$(date '+%Y-%m-%d %H:%M:%S') - Cleanup completed" >> "$LOG_FILE"
+          exit 0
+      else
+          echo "$(date '+%Y-%m-%d %H:%M:%S') - Backup failed!" >> "$LOG_FILE"
+          exit 1
+      fi
+  tags: [backup]
+
+# ---------------------------
+# PHẦN 3: Thiết lập cron hằng ngày (2:00 AM)
+# ---------------------------
+- name: Schedule daily Geth backup
+  ansible.builtin.cron:
+    name: "Daily Geth backup"
+    minute: "0"
+    hour: "2"
+    user: root
+    job: "/usr/local/bin/geth_backup.sh"
+    cron_file: geth-backup
+  tags: [backup]
+
+# ---------------------------
+# PHẦN 4: Kiểm thử script backup (manual verify)
+# ---------------------------
+- name: Test backup script execution
+  ansible.builtin.command: bash /usr/local/bin/geth_backup.sh
+  register: backup_test_result
+  failed_when: backup_test_result.rc != 0
+  tags: [backup]
+
+# ---------------------------
+# PHẦN 5: Xác minh tính toàn vẹn file backup mới nhất
+# ---------------------------
+- name: Verify latest backup archive integrity
+  ansible.builtin.shell: |
+    set -e
+    LATEST=$(ls -t /var/backups/geth/geth_backup_*.tar.gz | head -n 1)
+    mkdir -p /tmp/test_restore
+    tar -tzf "$LATEST" > /tmp/test_restore/verify_list.txt
+    echo "✅ Verified backup integrity: $LATEST" >> /var/backups/geth/backup.log
+  args:
+    executable: /bin/bash
+  register: verify_result
+  changed_when: false
+  failed_when: verify_result.rc != 0
+  tags: [backup]
+
+# ---------------------------
+# PHẦN 6: In kết quả xác minh
+# ---------------------------
+- name: Print backup verification summary
+  ansible.builtin.debug:
+    msg:
+      - "✅ Backup script executed successfully."
+      - "✅ Backup archive integrity verified."
+      - "Backup log file: /var/backups/geth/backup.log"
+  tags: [backup]
+

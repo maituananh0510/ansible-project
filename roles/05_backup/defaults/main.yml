@@ -1,0 +1,12 @@
+---
+# Default variables for 06_backup role
+
+backup_dir: /var/backups/geth
+backup_retention_days: 7
+
+# Optional: Remote backup settings (set to "" if unused)
+remote_backup_enabled: false
+remote_backup_user: backup
+remote_backup_host: backup-server.local
+remote_backup_path: /data/backup/geth
+

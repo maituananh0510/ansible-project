@@ -1,0 +1,29 @@
+Geth Compliance Report
+======================
+Generated on: {{ ansible_date_time.iso8601 }}
+Host: {{ inventory_hostname }}
+Ansible user: {{ ansible_user_id }}
+
+--- Service status (auditd, rsyslog, fail2ban, ssh, geth) ---
+{% for line in services_status.stdout_lines %}
+{{ line }}
+{% endfor %}
+
+--- Backup information ---
+Backup log exists: {{ 'yes' if backup_log_stat.exists | default(false) else 'no' }}
+Backup log mtime: {{ backup_log_stat.mtime | default('N/A') }}
+Latest backup artifact: {{ latest_backup }}
+
+--- Sample logs (audit/syslog/geth last lines) ---
+/var/log/audit (tail):
+{{ audit_log_content | truncate(8000, True, '...') }}
+
+/var/log/syslog (tail):
+{{ syslog_content | truncate(8000, True, '...') }}
+
+/var/log/geth (journal):
+{{ geth_log_content | truncate(8000, True, '...') }}
+
+
+--- End of report ---
+

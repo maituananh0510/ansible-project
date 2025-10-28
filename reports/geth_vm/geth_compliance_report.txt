@@ -1,0 +1,98 @@
+Geth Compliance Report
+======================
+Generated on: 2025-10-28T03:48:37Z
+Host: geth_vm
+Ansible user: root
+
+--- Service status (auditd, rsyslog, fail2ban, ssh, geth) ---
+active
+active
+active
+active
+active
+
+--- Backup information ---
+Backup log exists: no
+Backup log mtime: N/A
+Latest backup artifact: /var/backups/geth/geth_backup_20251027_124457.tar.gz
+
+--- Sample logs (audit/syslog/geth last lines) ---
+/var/log/audit (tail):
+type=CRED_REFR msg=audit(1761623101.887:709): pid=6670 uid=0 auid=0 ses=8 subj=unconfined msg='op=PAM:setcred grantors=pam_permit,pam_cap acct="root" exe="/usr/sbin/cron" hostname=? addr=? terminal=cron res=success'UID="root" AUID="root"
+type=CRED_DISP msg=audit(1761623101.899:710): pid=6669 uid=0 auid=0 ses=8 subj=unconfined msg='op=PAM:setcred grantors=pam_permit acct="root" exe="/usr/sbin/cron" hostname=? addr=? terminal=cron res=success'UID="root" AUID="root"
+type=USER_END msg=audit(1761623101.900:711): pid=6669 uid=0 auid=0 ses=8 subj=unconfined msg='op=PAM:session_close grantors=pam_loginuid,pam_env,pam_env,pam_permit,pam_umask,pam_unix,pam_limits acct="root" exe="/usr/sbin/cron" hostname=? addr=? terminal=cron res=success'UID="root" AUID="root"
+type=SERVICE_STOP msg=audit(1761623141.779:712): pid=1 uid=0 auid=4294967295 ses=4294967295 subj=unconfined msg='unit=anacron comm="systemd" exe="/usr/lib/systemd/systemd" hostname=? addr=? terminal=? res=success'UID="root" AUID="unset"
+type=USER_ACCT msg=audit(1761623252.860:713): pid=6687 uid=0 auid=4294967295 ses=4294967295 subj=unconfined msg='op=PAM:accounting grantors=pam_permit,pam_localuser acct="geth" exe="/usr/sbin/sshd" hostname=192.168.0.112 addr=192.168.0.112 terminal=ssh res=success'UID="root" AUID="unset"
+type=CRED_ACQ msg=audit(1761623252.863:714): pid=6687 uid=0 auid=4294967295 ses=4294967295 subj=unconfined msg='op=PAM:setcred grantors=pam_permit,pam_cap,pam_google_authenticator acct="geth" exe="/usr/sbin/sshd" hostname=192.168.0.112 addr=192.168.0.112 terminal=ssh res=success'UID="root" AUID="unset"
+type=LOGIN msg=audit(1761623252.864:715): pid=6687 uid=0 subj=unconfined old-auid=4294967295 auid=1000 tty=(none) old-ses=4294967295 ses=9 res=1UID="root" OLD-AUID="unset" AUID="geth"
+type=SYSCALL msg=audit(1761623252.864:715): arch=c000003e syscall=1 success=yes exit=4 a0=3 a1=7ffc3039f7e0 a2=4 a3=0 items=0 ppid=4069 pid=6687 auid=1000 uid=0 gid=0 euid=0 suid=0 fsuid=0 egid=0 sgid=0 fsgid=0 tty=(none) ses=9 comm="sshd" exe="/usr/sbin/sshd" subj=unconfined key=(null)ARCH=x86_64 SYSCALL=write AUID="geth" UID="root" GID="root" EUID="root" SUID="root" FSUID="root" EGID="root" SGID="root" FSGID="root"
+type=PROCTITLE msg=audit(1761623252.864:715): proctitle=737368643A2067657468205B707269765D
+type=USER_START msg=audit(1761623253.127:716): pid=6687 uid=0 auid=1000 ses=9 subj=unconfined msg='op=PAM:session_open grantors=pam_selinux,pam_loginuid,pam_keyinit,pam_permit,pam_umask,pam_unix,pam_systemd,pam_mail,pam_limits,pam_env,pam_env,pam_selinux acct="geth" exe="/usr/sbin/sshd" hostname=192.168.0.112 addr=192.168.0.112 terminal=ssh res=success'UID="root" AUID="geth"
+type=CRED_ACQ msg=audit(1761623253.136:717): pid=6731 uid=0 auid=1000 ses=9 subj=unconfined msg='op=PAM:setcred grantors=pam_permit,pam_cap,pam_google_authenticator acct="geth" exe="/usr/sbin/sshd" hostname=192.168.0.112 addr=192.168.0.112 terminal=ssh res=success'UID="root" AUID="geth"
+type=USER_LOGIN msg=audit(1761623253.741:718): pid=6687 uid=0 auid=1000 ses=9 subj=unconfined msg='op=login id=1000 exe="/usr/sbin/sshd" hostname=192.168.0.112 addr=192.168.0.112 terminal=/dev/pts/0 res=success'UID="root" AUID="geth" ID="geth"
+type=SYSCALL msg=audit(1761623253.757:719): arch=c000003e syscall=59 success=yes exit=0 a0=5d46e69aac90 a1=5d46e69aaa30 a2=5d46e69aabf8 a3=1 items=2 ppid=6746 pid=6747 auid=1000 uid=1000 gid=1000 euid=0 suid=0 fsuid=0 egid=1000 sgid=1000 fsgid=1000 tty=pts0 ses=9 comm="sudo" exe="/usr/bin/sudo" subj=unconfined key="sudo_exec"ARCH=x86_64 SYSCALL=execve AUID="geth" UID="geth" GID="geth" EUID="root" SUID="root" FSUID="root" EGID="geth" SGID="geth" FSGID="geth"
+type=EXECVE msg=audit(1761623253.757:719): argc=9 a0="sudo" a1="-H" a2="-S" a3="-n" a4="-u" a5="root" a6="/bin/sh" a7="-c" a8=6563686F204245434F4D452D535543434553532D6B64787470757465696E757A66677164657879647864656D676B66626D6B7479203B202F7573722F62696E2F707974686F6E33202F686F6D652F676574682F2E616E7369626C652F746D702F616E7369626C652D746D702D313736313632333235332E323037353233382D343234302D3237333335303232353737323336332F416E736962616C6C5A5F636F6D6D616E642E7079
+type=CWD msg=audit(1761623253.757:719): cwd="/home/geth"
+type=PATH msg=audit(1761623253.757:719): item=0 name="/usr/bin/sudo" inode=3278237 dev=08:02 mode=0104755 ouid=0 ogid=0 rdev=00:00 nametype=NORMAL cap_fp=0 cap_fi=0 cap_fe=0 cap_fver=0 cap_frootid=0OUID="root" OGID="root"
+type=PATH msg=audit(1761623253.757:719): item=1 name="/lib64/ld-linux-x86-64.so.2" inode=3279320 dev=08:02 mode=0100755 ouid=0 ogid=0 rdev=00:00 nametype=NORMAL cap_fp=0 cap_fi=0 cap_fe=0 cap_fver=0 cap_frootid=0OUID="root" OGID="root"
+type=PROCTITLE msg=audit(1761623253.757:719): proctitle=7375646F002D48002D53002D6E002D7500726F6F74002F62696E2F7368002D63006563686F204245434F4D452D535543434553532D6B64787470757465696E757A66677164657879647864656D676B66626D6B7479203B202F7573722F62696E2F707974686F6E33202F686F6D652F676574682F2E616E7369626C652F746D70
+type=USER_ACCT msg=audit(1761623253.774:720): pid=6747 uid=1000 auid=1000 ses=9 subj=unconfined msg='op=PAM:accounting grantors=pam_permit,pam_localuser acct="geth" exe="/usr/bin/sudo" hostname=? addr=? terminal=/dev/pts/0 res=success'UID="geth" AUID="geth"
+type=USER_CMD msg=audit(1761623253.774:721): pid=6747 uid=1000 auid=1000 ses=9 subj=unconfined msg='cwd="/home/geth" cmd=2F62696E2F7368202D63206563686F204245434F4D452D535543434553532D6B64787470757465696E757A66677164657879647864656D676B66626D6B7479203B202F7573722F62696E2F707974686F6E33202F686F6D652F676574682F2E616E7369626C652F746D702F616E7369626C652D746D702D313736313632333235332E323037353233382D343234302D3237333335303232353737323336332F416E736962616C6C5A5F636F6D6D616E642E7079 exe="/usr/bin/sudo" terminal=pts/0 res=success'UID="geth" AUID="geth"
+type=CRED_REFR msg=audit(1761623253.777:722): pid=6747 uid=1000 auid=1000 ses=9 subj=unconfined msg='op=PAM:setcred grantors=pam_permit,pam_cap acct="root" exe="/usr/bin/sudo" hostname=? addr=? terminal=/dev/pts/0 res=success'UID="geth" AUID="geth"
+type=USER_START msg=audit(1761623253.778:723): pid=6747 uid=1000 auid=1000 ses=9 subj=unconfined msg='op=PAM:session_open grantors=pam_limits,pam_env,pam_env,pam_permit,pam_umask,pam_unix acct="root" exe="/usr/bin/sudo" hostname=? addr=? terminal=/dev/pts/0 res=success'UID="geth" AUID="geth"
+type=USER_END msg=audit(1761623254.217:724): pid=6747 uid=1000 auid=1000 ses=9 subj=unconfined msg='op=PAM:session_close grantors=pam_limits,pam_env,pam_env,pam_permit,pam_umask,pam_unix acct="root" exe="/usr/bin/sudo" hostname=? addr=? terminal=/dev/pts/0 res=success'UID="geth" AUID="geth"
+type=CRED_DISP msg=audit(1761623254.218:725): pid=6747 uid=1000 auid=1000 ses=9 subj=unconfined msg='op=PAM:setcred grantors=pam_permit acct="root" exe="/usr/bin/sudo" hostname=? addr=? terminal=/dev/pts/0 res=success'UID="geth" AUID="geth"
+type=USER_LOGIN msg=audit(1761623302.317:726): pid=6687 uid=0 auid=1000 ses=9 subj=unconfined msg='op=login id=1000 exe="/usr/sbin/sshd" hostname=192.168.0.112 addr=192.168.0.112 terminal=/dev/pts/0 res=success'UID="root" AUID="geth" ID="geth"
+type=SYSCALL msg=audit(1761623302.333:727): arch=c000003e syscall=59 success=yes exit=0 a0=5a761b71fc90 a1=5a761b71fa28 a2=5a761b71fbf8 a3=1 items=2 ppid=6771 pid=6772 auid=1000 uid=1000 gid=1000 euid=0 suid=0 fsuid=0 egid=1000 sgid=1000 fsgid=1000 tty=pts0 ses=9 comm="sudo" exe="/usr/bin/sudo" subj=unconfined key="sudo_exec"ARCH=x86_64 SYSCALL=execve AUID="geth" UID="geth" GID="geth" EUID="root" SUID="root" FSUID="root" EGID="geth" SGID="geth" FSGID="geth"
+type=EXECVE msg=audit(1761623302.333:727): argc=9 a0="sudo" a1="-H" a2="-S" a3="-n" a4="-u" a5="root" a6="/bin/sh" a7="-c" a8=6563686F204245434F4D452D535543434553532D767668756C716D796162716C6F64766D66786A796F626E6479616469636A6F61203B202F7573722F62696E2F707974686F6E33202F686F6D652F676574682F2E616E7369626C652F746D702F616E7369626C652D746D702D313736313632333330312E353436383338352D343236332D3139313537393336353232333634322F416E736962616...
+
+/var/log/syslog (tail):
+2025-10-28T10:36:48.894109+07:00 geth-server chronyd[1862]: Selected source 157.66.25.2 (0.ubuntu.pool.ntp.org)
+2025-10-28T10:36:49.177476+07:00 geth-server python3[5163]: ansible-ansible.legacy.slurp Invoked with src=/var/reports/geth-compliance/audit_tail.log
+2025-10-28T10:36:50.108099+07:00 geth-server python3[5186]: ansible-ansible.legacy.slurp Invoked with src=/var/reports/geth-compliance/syslog_tail.log
+2025-10-28T10:36:50.913544+07:00 geth-server python3[5209]: ansible-ansible.legacy.slurp Invoked with src=/var/reports/geth-compliance/geth_journal.log
+2025-10-28T10:36:52.374009+07:00 geth-server geth[1825]: INFO [10-28|10:36:52.373] Looking for peers                        peercount=2 tried=17 static=0
+2025-10-28T10:36:54.245377+07:00 geth-server python3[5232]: ansible-ansible.legacy.stat Invoked with path=/var/reports/geth-compliance/geth_compliance_report_20251028T103640.json follow=False get_checksum=True checksum_algorithm=sha1 get_mime=True get_attributes=True
+2025-10-28T10:36:54.979553+07:00 geth-server python3[5246]: ansible-ansible.legacy.copy Invoked with dest=/var/reports/geth-compliance/geth_compliance_report_20251028T103640.json owner=root group=root mode=0640 src=/home/geth/.ansible/tmp/ansible-tmp-1761622613.6133642-3855-152311212515676/source _original_basename=tmp97trtpuk follow=False checksum=367288f5dfa711992240a57367ccd32cc59bad1a backup=False force=True unsafe_writes=False content=NOT_LOGGING_PARAMETER validate=None directory_mode=None remote_src=None local_follow=None seuser=None serole=None selevel=None setype=None attributes=None
+2025-10-28T10:36:56.106018+07:00 geth-server python3[5269]: ansible-ansible.builtin.archive Invoked with path=['/var/reports/geth-compliance/geth_compliance_report_20251028T103640.txt', '/var/reports/geth-compliance/geth_compliance_report_20251028T103640.json', '/var/reports/geth-compliance/audit_tail.log', '/var/reports/geth-compliance/syslog_tail.log', '/var/reports/geth-compliance/geth_journal.log'] dest=/var/reports/geth-compliance/geth_compliance_package_20251028T103640.tar.gz format=gz exclude_path=[] force_archive=False remove=False unsafe_writes=False exclusion_patterns=None mode=None owner=None group=None seuser=None serole=None selevel=None setype=None attributes=None
+2025-10-28T10:36:56.970944+07:00 geth-server python3[5292]: ansible-ansible.builtin.find Invoked with paths=['/var/reports/geth-compliance'] patterns=['geth_compliance_*'] age=30d recurse=False read_whole_file=False file_type=file age_stamp=mtime hidden=False follow=False get_checksum=False use_regex=False exact_mode=True excludes=None contains=None size=None depth=None mode=None
+2025-10-28T10:36:57.987469+07:00 geth-server python3[5315]: ansible-ansible.legacy.slurp Invoked with src=/var/reports/geth-compliance/geth_compliance_package_20251028T103640.tar.gz
+2025-10-28T10:36:59.535981+07:00 geth-server systemd[2887]: Started app-gnome-org.gnome.DejaDup.Monitor-5320.scope - Application launched by gnome-session-binary.
+2025-10-28T10:37:12.542115+07:00 geth-server geth[1825]: INFO [10-28|10:37:12.541] Looking for peers                        peercount=2 tried=15 static=0
+2025-10-28T10:37:22.749722+07:00 geth-server geth[1825]: INFO [10-28|10:37:22.748] Looking for peers                        peercount=2 tried=12 static=0
+2025-10-28T10:37:25.829019+07:00 geth-server rsyslogd[1446]: rsyslogd: cannot connect to 192.168.0.200:514: No route to host [v8.2312.0 try https://www.rsyslog.com/e/2027 ]
+2025-10-28T10:37:33.221004+07:00 geth-server geth[1825]: INFO [10-28|10:37:33.220] Looking for peers                        peercount=2 tried=7  static=0
+2025-10-28T10:37:43.380969+07:00 geth-server geth[1825]: INFO [10-28|10:37:43.379] Looking for peers                        peercount=2 tried=10 static=0
+2025-10-28T10:37:45.261814+07:00 geth-server kernel: [UFW BLOCK] IN=ens33 OUT= MAC=01:00:5e:00:00:01:90:9a:4a:60:91:b4:08:00 SRC=192.168.0.1 DST=224.0.0.1 LEN=36 TOS=0x00 PREC=0x00 TTL=1 ID=0 DF PROTO=2 
+2025-10-28T10:37:53.806035+07:00 geth-server geth[1825]: INFO [10-28|10:37:53.805] Looking for peers                        peercount=2 tried=9  static=0
+2025-10-28T10:37:57.357435+07:00 geth-server systemd[1]: session-5.scope: Deactivated successfully.
+2025-10-28T10:37:57.357712+07:00 geth-server systemd[1]: session-5.scope: Consumed 22.979s CPU time.
+2025-10-28T10:38:00.452119+07:00 geth-server rsyslogd[1446]: rsyslogd: cannot connect to 192.168.0.200:514: No route to host [v8.2312.0 try https://www.rsyslog.com/e/2027 ]
+2025-10-28T10:38:04.402456+07:00 geth-server geth[1825]: INFO [10-28|10:38:04.401] Looking for peers                        peercount=2 tried=8  static=0
+2025-10-28T10:38:59.628890+07:00 geth-server dbus-daemon[2916]: [session uid=1000 pid=2916] Activating service name='org.gnome.DejaDup' requested by ':1.113' (uid=1000 pid=5320 comm="/usr/libexec/deja-dup/deja-dup-monitor" label="unconfined")
+2025-10-28T10:38:59.703185+07:00 geth-server dbus-daemon[2916]: [session uid=1000 pid=2916] Successfully activated service 'org.gnome.DejaDup'
+2025-10-28T10:39:02.724121+07:00 geth-server rsyslogd[1446]: rsyslogd: cannot connect to 192.168.0.200:514: No route to host [v8.2312.0 try https://www.rsyslog.com/e/2027 ]
+2025-10-28T10:39:13.616152+07:00 geth-server systemd[1]: Started session-6.scope - Session 6 of User geth.
+2025-10-28T10:39:14.826030+07:00 geth-server python3[5415]: ansible-ansible.legacy.command Invoked with _raw_params=ls -lh /var/reports/geth-compliance/ _uses_shell=True expand_argument_vars=True stdin_add_newline=True strip_empty_ends=True argv=None chdir=None executable=None creates=None removes=None stdin=None
+2025-10-28T10:39:16.494025+07:00 geth-server geth[1825]: INFO [10-28|10:39:16.492] Looking for peers                        peercount=2 tried=15 static=0
+2025-10-28T10:39:32.408236+07:00 geth-server systemd[1]: Starting update-notifier-download.service - Download data for packages that failed at package install time...
+2025-10-28T10:39:32.700976+07:00 geth-server systemd[1]: update-notifier-download.service: Deactivated successfully.
+2025-10-28T10:39:32.701424+07:00 geth-server systemd[1]: Finished update-notifier-download.service - Download data for packages that failed at package install time.
+2025-10-28T10:39:32.739367+07:00 geth-server anacron[1876]: Job `cron.daily' started
+2025-10-28T10:39:32.764553+07:00 geth-server anacron[5429]: Updated timestamp for job `cron.daily' to 2025-10-28
+2025-10-28T10:39:32.822783+07:00 geth-server anacron[1876]: Job `cron.daily' terminated
+2025-10-28T10:39:35.491954+07:00 geth-server rsyslogd[1446]: rsyslogd: cannot connect to 192.168.0.200:514: No route to host [v8.2312.0 try https://www.rsyslog.com/e/2027 ]
+2025-10-28T10:39:39.495333+07:00 geth-server dbus-daemon[1285]: [system] Activating via systemd: service name='org.freedesktop.timedate1' unit='dbus-org.freedesktop.timedate1.service' requested by ':1.31' (uid=0 pid=1375 comm="/snap/snapd/current/usr/lib/snapd/snapd" label="unconfined")
+2025-10-28T10:39:39.524890+07:00 geth-server systemd[1]: Starting systemd-timedated.service - Time & Date Service...
+2025-10-28T10:39:39.625942+07:00 geth-server dbus-daemon[1285]: [system] Successfully activated service 'org.freedesktop.timedate1'
+2025-10-28T10:39:39.626383+07:00 geth-server systemd[1]: Started systemd-timedated.service - Time & Date Service.
+2025-10-28T10:39:41.420458+07:00 geth-server snapd[1375]: storehelpers.go:916: cannot refresh: snap has no updates available: "bare", "core22", "firefox", "firmware-updater", "gnome-42-2204", "gtk-common-themes", "snap-store", "snapd", "snapd-desktop-integration", "thunderbird"
+2025-10-28T10:40:00.038775+07:00 geth-server python3[5460]: ansible-ansible.legacy.command Invoked with _raw_params=ls -ld /var/reports/geth-compliance/ _uses_shell=True expand_argument_vars=True stdin_add_newline=True strip_empty_ends=True argv=None chdir=None executable=None creates=None removes=None stdin=None
+2025-10-28T10:40:00.117598+07:00 ...
+
+/var/log/geth (journal):
+geth not installed
+
+
+--- End of report ---
+

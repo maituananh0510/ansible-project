@@ -1,0 +1,52 @@
+#!/bin/bash
+# ====================================================
+# Geth Backup Script (Improved by Ansible Role 06_backup)
+# ====================================================
+
+BACKUP_DIR="{{ backup_dir }}"
+DATE=$(date +"%Y%m%d_%H%M%S")
+BACKUP_FILE="$BACKUP_DIR/geth_backup_$DATE.tar.gz"
+LOG_FILE="$BACKUP_DIR/backup.log"
+
+mkdir -p "$BACKUP_DIR"
+
+echo "$(date +"%Y-%m-%d %H:%M:%S") - Starting backup..." >> "$LOG_FILE"
+
+# Danh sách file cần backup
+FILES_TO_BACKUP=""
+for f in /var/lib/geth /etc/systemd/system/geth.service /etc/ssh/sshd_config; do
+  if [ -e "$f" ]; then
+    FILES_TO_BACKUP="$FILES_TO_BACKUP $f"
+  else
+    echo "$(date +"%Y-%m-%d %H:%M:%S") - Warning: $f not found, skipping." >> "$LOG_FILE"
+  fi
+done
+
+if [ -z "$FILES_TO_BACKUP" ]; then
+  echo "$(date +"%Y-%m-%d %H:%M:%S") - No files to backup. Exiting." >> "$LOG_FILE"
+  exit 0
+fi
+
+# Thực hiện nén (bỏ qua lỗi nhỏ như "file changed as we read it")
+tar -czf "$BACKUP_FILE" $FILES_TO_BACKUP --warning=no-file-changed --ignore-failed-read >> "$LOG_FILE" 2>&1
+TAR_STATUS=$?
+
+# tar trả về 1 nếu có cảnh báo, nên chỉ fail nếu exit code > 1
+if [ $TAR_STATUS -le 1 ]; then
+  echo "$(date +"%Y-%m-%d %H:%M:%S") - Backup completed successfully: $BACKUP_FILE" >> "$LOG_FILE"
+else
+  echo "$(date +"%Y-%m-%d %H:%M:%S") - Backup failed during compression (code=$TAR_STATUS)!" >> "$LOG_FILE"
+  exit 1
+fi
+
+# Xóa backup cũ
+find "$BACKUP_DIR" -type f -name "*.tar.gz" -mtime +{{ backup_retention_days }} -exec rm -f {} \;
+
+# Gửi bản sao tới server trung tâm (nếu bật)
+{% if remote_backup_enabled %}
+rsync -az "$BACKUP_FILE" {{ remote_backup_user }}@{{ remote_backup_host }}:{{ remote_backup_path }} >> "$LOG_FILE" 2>&1
+{% endif %}
+
+echo "$(date +"%Y-%m-%d %H:%M:%S") - Cleanup completed" >> "$LOG_FILE"
+exit 0
+
